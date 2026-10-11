@@ -20,6 +20,7 @@ export interface ConfigFiles {
 
 export interface LoadedConfig {
   settings: Settings | null;
+  invalidSettings: SettingKey[];
   shortcuts: ShortcutOverrides | null;
   errors: string[];
 }
@@ -67,21 +68,32 @@ function readText(file: string): string {
 }
 
 function readJsonObject(file: string): { value: JsonObject | null; error: string | null } {
-  const parsed = jsonObject.safeParse(readText(file));
+  let text = "";
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") return { value: null, error: describe(file, { path: [], message: `cannot read file (${code})` }) };
+  }
+  const parsed = jsonObject.safeParse(text);
   if (parsed.success) return { value: parsed.data, error: null };
   return { value: null, error: describe(file, parsed.error.issues[0]) };
 }
 
-function settingsFrom(file: string, raw: JsonObject): { value: Settings; errors: string[] } {
+function settingsFrom(file: string, raw: JsonObject): { value: Settings; invalid: SettingKey[]; errors: string[] } {
   const value = defaultSettings() as Record<string, unknown>;
+  const invalid: SettingKey[] = [];
   const errors: string[] = [];
   for (const key of SETTING_KEYS) {
     if (raw[key] === undefined) continue;
     const parsed = SETTINGS[key].schema.safeParse(raw[key]);
     if (parsed.success) value[key] = parsed.data;
-    else errors.push(describe(file, { path: [key], message: parsed.error.issues[0].message }));
+    else {
+      invalid.push(key);
+      errors.push(describe(file, { path: [key], message: parsed.error.issues[0].message }));
+    }
   }
-  return { value: value as Settings, errors };
+  return { value: value as Settings, invalid, errors };
 }
 
 function shortcutsFrom(file: string, raw: JsonObject): { value: ShortcutOverrides; errors: string[] } {
@@ -119,6 +131,7 @@ export class ConfigStore {
       shortcutsFile.value && shortcutsFrom(this.files.shortcuts, shortcutsFile.value);
     return {
       settings: settings?.value ?? null,
+      invalidSettings: settings?.invalid ?? [],
       shortcuts: shortcuts?.value ?? null,
       errors: [
         settingsFile.error,

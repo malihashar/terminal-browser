@@ -211,7 +211,7 @@ class Session {
   };
   private readonly telemetry = new Telemetry({
     version: this.release.version,
-    usageEnabled: () => this.settings.get("telemetry.usage") !== "off",
+    usageEnabled: () => this.settings.telemetryAllowed("telemetry.usage"),
     crashReportsEnabled: () => false,
     terminal: () => this.terminal?.name ?? null,
   });

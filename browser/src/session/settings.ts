@@ -15,14 +15,17 @@ import {
   Keymap,
   SETTING_KEYS,
   SETTINGS,
+  telemetryAllowed,
 } from "shared";
 import type {
   Chord,
   CommandId,
   ConfigFiles,
+  LoadedConfig,
   SettingKey,
   Settings,
   ShortcutOverrides,
+  TelemetryKind,
 } from "shared";
 import { bundledAsset } from "../assets";
 import type { ReleaseView, SettingRow, SettingsActions, SettingsSection, SettingsView } from "../ui/types";
@@ -84,6 +87,7 @@ function homeRelative(file: string): string {
 export class SettingsManager {
   private readonly config: ConfigStore;
   private values: Settings;
+  private loaded: LoadedConfig;
   private overrides: ShortcutOverrides;
   private map: Keymap;
   private noSuper = false;
@@ -97,6 +101,7 @@ export class SettingsManager {
   ) {
     this.config = new ConfigStore(files);
     const loaded = this.config.load();
+    this.loaded = loaded;
     this.values = loaded.settings ?? defaultSettings();
     this.overrides = loaded.shortcuts ?? {};
     this.map = new Keymap(this.overrides, { noSuper: false });
@@ -104,6 +109,10 @@ export class SettingsManager {
 
   get<K extends SettingKey>(key: K): Settings[K] {
     return this.values[key];
+  }
+
+  telemetryAllowed(kind: TelemetryKind): boolean {
+    return telemetryAllowed(this.loaded, kind);
   }
 
   get keymap(): Keymap {
@@ -125,6 +134,7 @@ export class SettingsManager {
 
   reload(announce: boolean) {
     const loaded = this.config.load();
+    this.loaded = loaded;
     if (loaded.settings) this.values = loaded.settings;
     if (loaded.shortcuts) this.overrides = loaded.shortcuts;
     this.map = new Keymap(this.overrides, { noSuper: this.noSuper });

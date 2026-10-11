@@ -5,7 +5,7 @@ import path from "node:path";
 import { app, screen } from "electron";
 
 import { runDaemon } from "./daemon";
-import { ConfigStore, LOGS_DIR, SETTINGS_FILE, SHORTCUTS_FILE, ensureDataDir, installedVersion } from "shared";
+import { ConfigStore, LOGS_DIR, SETTINGS_FILE, SHORTCUTS_FILE, ensureDataDir, installedVersion, telemetryAllowed } from "shared";
 import { Telemetry } from "./telemetry";
 import type { CrashSource } from "./telemetry";
 import { appLog } from "@zenbu-labs/pixel";
@@ -34,7 +34,7 @@ const crashReports = new Telemetry({
   version: installedVersion() ?? "dev",
   usageEnabled: () => false,
   crashReportsEnabled: () =>
-    new ConfigStore({ settings: SETTINGS_FILE, shortcuts: SHORTCUTS_FILE }).load().settings?.["telemetry.crashReports"] !== "off",
+    telemetryAllowed(new ConfigStore({ settings: SETTINGS_FILE, shortcuts: SHORTCUTS_FILE }).load(), "telemetry.crashReports"),
   terminal: () => null,
 });
 function reportAndExit(error: unknown, source: CrashSource) {
